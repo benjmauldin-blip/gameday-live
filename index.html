@@ -249,7 +249,7 @@ function render(d){
   else if(d.status==='test'){pill.className='pill wait'; pt.textContent='Test data (not tonight)';}
   else if(age>15){pill.className='pill stale'; pt.textContent='No new data in '+Math.round(age)+' min';}
   else {pill.className='pill live'; pt.textContent='Live';}
-  document.getElementById('updated').textContent=CURRENT==='live'?`Last check ${fmt(d.updated.slice(11,16))}. Page refreshes itself every minute.`:`Final numbers. Last check ${fmt(d.updated.slice(11,16))}. Move the slider to replay the night.`;
+  document.getElementById('updated').textContent=CURRENT==='live'?`Last check ${fmt(d.updated.slice(11,16))}. Page checks for updates every 90 seconds.`:`Final numbers. Last check ${fmt(d.updated.slice(11,16))}. Move the slider to replay the night.`;
   const active=d.roads.filter(r=>!r.excluded&&r.extra_min!=null);
   const worst=active.slice().sort((a,b)=>b.extra_min-a.extra_min)[0];
   document.getElementById('t1').textContent=Math.round(last.extra_min);
@@ -315,7 +315,7 @@ document.getElementById('game').addEventListener('change',e=>{CURRENT=e.target.v
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',show);
 CURRENT=new URLSearchParams(location.search).get('game')||'live';
 loadGames().then(tick);
-setInterval(()=>{ if(CURRENT==='live') tick(); },60000);
+setInterval(()=>{ if(CURRENT==='live') tick(); },90000);
 setInterval(loadGames,600000);
 </script>
 </body>
