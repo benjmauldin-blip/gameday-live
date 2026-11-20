@@ -130,6 +130,7 @@ tr.ex td{color:var(--muted)}
 </div>
 <div class="tip" id="tip"></div>
 
+<script data-goatcounter="https://bluefinch.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <script src="geo.js"></script>
 <script>
 const CLASSES=[[1,'--c0','Under 1 min'],[5,'--c1','1 to 5 min'],[15,'--c2','5 to 15 min'],[25,'--c3','15 to 25 min'],[1e9,'--c4','25 min or more']];
@@ -311,7 +312,8 @@ function snapshot(d,i){
 document.getElementById('refresh').addEventListener('click',tick);
 document.getElementById('slider').addEventListener('input',e=>{AT=+e.target.value; show();});
 document.getElementById('game').addEventListener('change',e=>{CURRENT=e.target.value;
-  const u=new URL(location); if(CURRENT==='live')u.searchParams.delete('game'); else u.searchParams.set('game',CURRENT); history.replaceState(null,'',u); tick();});
+  const u=new URL(location); if(CURRENT==='live')u.searchParams.delete('game'); else u.searchParams.set('game',CURRENT); history.replaceState(null,'',u); tick();
+  try{ if(window.goatcounter&&window.goatcounter.count) window.goatcounter.count({path:'/gameday-live/game/'+CURRENT, title:'Picked game: '+CURRENT, event:true}); }catch(e){} });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',show);
 CURRENT=new URLSearchParams(location.search).get('game')||'live';
 loadGames().then(tick);
