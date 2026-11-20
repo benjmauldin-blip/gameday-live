@@ -113,6 +113,11 @@ tr.ex td{color:var(--muted)}
     </table>
   </div>
 
+  <div class="card" id="reports" hidden style="margin-top:12px">
+    <h2>After the Whistle reports</h2>
+    <div id="replist" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
   <p class="note" id="foot">Drive times from Google Maps (traffic-aware), checked every 5 minutes from halftime until about 5 hours after the game, compared with a normal Saturday at the same clock time. "Congested" means at least 1.5 times normal and 2 or more minutes slow. Prepared by Blue Finch.</p>
 </div>
 <div class="tip" id="tip"></div>
@@ -146,6 +151,11 @@ async function loadGames(){
     const d=new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     return `<option value="${esc(g.id)}">${esc(g.title)}, ${d}</option>`;}).join('');
   sel.value=CURRENT;
+  const reps=GAMES.filter(g=>g.report), box=document.getElementById('reports');
+  box.hidden=!reps.length;
+  document.getElementById('replist').innerHTML=reps.map(g=>{
+    const d=new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `<a class="btn" href="${esc(g.report)}" download="${esc(g.report_name||'')}">${esc(g.title)}, ${d} (PDF)</a>`;}).join('');
 }
 async function load(){
   if(CURRENT!=='live'){
