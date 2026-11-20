@@ -33,6 +33,8 @@ h1{font-size:21px;margin:0;color:var(--garnet);line-height:1.15}
 .pill.live .dot{animation:pulse 1.6s infinite}
 .pill.stale .dot{background:var(--c2)} .pill.wait .dot{background:var(--off)}
 @keyframes pulse{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}
+select,.btn{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 10px}
+.btn{text-decoration:none;font-weight:600;color:var(--garnet)}
 button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
@@ -71,12 +73,22 @@ tr.ex td{color:var(--muted)}
     <span id="updated" class="sub"></span>
     <button id="refresh" type="button">Refresh</button>
   </div>
+  <div class="status">
+    <label for="game" class="sub">Game:</label>
+    <select id="game"><option value="live">Tonight (live)</option></select>
+    <a id="report" class="btn" href="#" download hidden>Download After the Whistle report (PDF)</a>
+  </div>
 
   <div class="tiles">
     <div class="tile"><b id="t1">–</b><span>extra minutes now, all roads combined</span></div>
     <div class="tile"><b id="t2">–</b><span>roads congested now</span></div>
     <div class="tile"><b id="t3">–</b><span id="t3s">longest delay now</span></div>
     <div class="tile"><b id="t4">–</b><span id="t4s">peak so far</span></div>
+  </div>
+
+  <div class="card" id="replay" hidden style="margin-top:12px">
+    <h2>Replay the night: <span id="slidert"></span></h2>
+    <input id="slider" type="range" min="0" max="0" value="0" style="width:100%">
   </div>
 
   <div class="grid2">
@@ -126,7 +138,20 @@ function sources(){
   out.push('data/live.json');
   return out;
 }
+let GAMES=[], CURRENT='live';
+async function loadGames(){
+  try{const r=await fetch('data/games.json?t='+Date.now(),{cache:'no-store'}); if(r.ok) GAMES=await r.json();}catch(e){}
+  const sel=document.getElementById('game');
+  sel.innerHTML='<option value="live">Tonight (live)</option>'+GAMES.map(g=>{
+    const d=new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    return `<option value="${esc(g.id)}">${esc(g.title)}, ${d}</option>`;}).join('');
+  sel.value=CURRENT;
+}
 async function load(){
+  if(CURRENT!=='live'){
+    try{const r=await fetch(`data/games/${encodeURIComponent(CURRENT)}.json`,{cache:'no-store'}); if(r.ok) return await r.json();}catch(e){}
+    return null;
+  }
   for(const url of sources()){
     try{
       const api=url.includes('api.github.com');
@@ -187,7 +212,12 @@ function drawLine(id, series, key, maxV, h, label, isPct){
   svg.innerHTML=o;
 }
 
+function setReport(){
+  const a=document.getElementById('report'), g=GAMES.find(x=>x.id===CURRENT);
+  if(g&&g.report){a.href=g.report; a.hidden=false;} else a.hidden=true;
+}
 function render(d){
+  setReport();
   const pill=document.getElementById('pill'), pt=document.getElementById('pilltext');
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
@@ -201,7 +231,7 @@ function render(d){
   else if(d.status==='test'){pill.className='pill wait'; pt.textContent='Test data (not tonight)';}
   else if(age>15){pill.className='pill stale'; pt.textContent='No new data in '+Math.round(age)+' min';}
   else {pill.className='pill live'; pt.textContent='Live';}
-  document.getElementById('updated').textContent=`Last check ${fmt(d.updated.slice(11,16))}. Page refreshes itself every minute.`;
+  document.getElementById('updated').textContent=CURRENT==='live'?`Last check ${fmt(d.updated.slice(11,16))}. Page refreshes itself every minute.`:`Final numbers. Last check ${fmt(d.updated.slice(11,16))}. Move the slider to replay the night.`;
   const active=d.roads.filter(r=>!r.excluded&&r.extra_min!=null);
   const worst=active.slice().sort((a,b)=>b.extra_min-a.extra_min)[0];
   document.getElementById('t1').textContent=Math.round(last.extra_min);
@@ -223,10 +253,38 @@ function render(d){
       <td class="n">${r.excluded?'':`+${r.peak_extra_min??0} at ${fmt(r.peak_at)}`}</td></tr>`;}).join('');
 }
 
-async function tick(){ render(await load()); }
+let DATA=null, AT=null;
+async function tick(){ DATA=await load(); AT=null; show(); }
+function show(){
+  const sl=document.getElementById('slider'), box=document.getElementById('replay');
+  if(!DATA||!DATA.series||!DATA.series.length||CURRENT==='live'){box.hidden=true; render(DATA); return;}
+  box.hidden=false; sl.max=DATA.series.length-1; if(AT==null) AT=sl.max; sl.value=AT;
+  document.getElementById('slidert').textContent=fmt(DATA.series[AT].t);
+  render(AT==sl.max?DATA:snapshot(DATA,AT));
+}
+// Past games: rebuild the map and table as they stood at an earlier check (needs per-road history).
+function snapshot(d,i){
+  const s=d.series.slice(0,i+1), out=Object.assign({},d,{series:s});
+  if(d.road_hist){
+    const ex=h=>h?+Math.max(0,h[0]-h[1]).toFixed(1):null;
+    out.roads=d.roads.map(r=>{const h=d.road_hist[r.id]; if(!h||!h[i]) return Object.assign({},r,{now_min:null,normal_min:null,extra_min:null,trend:0});
+      const v=ex(h[i]), pv=i&&h[i-1]?ex(h[i-1]):v;
+      let pk=0,pi=0; h.slice(0,i+1).forEach((x,k)=>{const e=ex(x); if(e!=null&&e>pk){pk=e;pi=k;}});
+      return Object.assign({},r,{now_min:h[i][0],normal_min:h[i][1],extra_min:v,trend:+(v-pv).toFixed(1),peak_extra_min:pk,peak_at:s[pi].t});});
+  }
+  out.peak=s.reduce((a,b)=>b.extra_min>a.extra_min?b:a,s[0]);
+  out.updated=d.updated.slice(0,11)+s[i].t;
+  return out;
+}
 document.getElementById('refresh').addEventListener('click',tick);
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change',tick);
-tick(); setInterval(tick,60000);
+document.getElementById('slider').addEventListener('input',e=>{AT=+e.target.value; show();});
+document.getElementById('game').addEventListener('change',e=>{CURRENT=e.target.value;
+  const u=new URL(location); if(CURRENT==='live')u.searchParams.delete('game'); else u.searchParams.set('game',CURRENT); history.replaceState(null,'',u); tick();});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',show);
+CURRENT=new URLSearchParams(location.search).get('game')||'live';
+loadGames().then(tick);
+setInterval(()=>{ if(CURRENT==='live') tick(); },60000);
+setInterval(loadGames,600000);
 </script>
 </body>
 </html>
