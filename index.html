@@ -214,7 +214,7 @@ function drawLine(id, series, key, maxV, h, label, isPct){
 
 function setReport(){
   const a=document.getElementById('report'), g=GAMES.find(x=>x.id===CURRENT);
-  if(g&&g.report){a.href=g.report; a.hidden=false;} else a.hidden=true;
+  if(g&&g.report){a.href=g.report; a.download=g.report_name||''; a.textContent=`Download After the Whistle: ${g.title} (PDF)`; a.hidden=false;} else a.hidden=true;
 }
 function render(d){
   setReport();
