@@ -186,6 +186,7 @@ function drawMap(d){
   (d?.roads||[]).forEach(r=>byId[r.id]=r);
   svg.setAttribute('viewBox',`0 0 ${G.w} ${G.h}`);
   let o=`<rect width="${G.w}" height="${G.h}" fill="${css('--bg')}" rx="10"/>`;
+  (G.bg||[]).forEach(([c,p])=>{o+=`<polyline points="${p.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${css('--line')}" stroke-width="${c===1?7:3.5}" stroke-linecap="round" stroke-linejoin="round"/>`;});
   const order=Object.keys(G.segs).sort((a,b)=>((byId[a]?.extra_min)||0)-((byId[b]?.extra_min)||0));
   for(const id of order){
     const r=byId[id], pts=G.segs[id].map(p=>p.join(',')).join(' ');
@@ -194,6 +195,18 @@ function drawMap(d){
     o+=`<polyline points="${pts}" fill="none" stroke="${css('--card')}" stroke-width="${w+6}" stroke-linecap="round" stroke-linejoin="round"/>`;
     o+=`<polyline class="seg" data-id="${id}" points="${pts}" fill="none" stroke="${colorFor(m)}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${r&&r.excluded?'stroke-dasharray="10 8"':''}/>`;
   }
+  // Street labels placed along the measured roads
+  const LABELS=[['S03','Shop Rd',.62,-14],['S01','Bluff Rd',.78,34],['S21','Bluff Rd',.55,-14],['S04','Assembly St',.45,-14],['S05','Rosewood Dr',.62,-14],['S23','Olympia Ave',.75,34],
+    ['S15','Blossom St',.5,-14],['S22','Gervais St',.45,-14],['S17','Garners Ferry Rd',.2,36],['S18','Atlas Rd',.4,34],['S06','Huger St',.52,-14]];
+  const SHIELDS=[['S07','I-77',.35],['S11','I-26',.45],['S12','I-126',.5],['S20','I-20',.5],['S19','I-26',.5]];
+  const at=(pts,f)=>{let L=0;const d=[];for(let i=1;i<pts.length;i++){const l=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);d.push(l);L+=l;}
+    let t=L*f;for(let i=0;i<d.length;i++){if(t<=d[i]){const a=pts[i],b=pts[i+1],r=d[i]?t/d[i]:0;let ang=Math.atan2(b[1]-a[1],b[0]-a[0])*180/Math.PI;if(ang>90)ang-=180;if(ang<-90)ang+=180;return[a[0]+(b[0]-a[0])*r,a[1]+(b[1]-a[1])*r,ang];}t-=d[i];}
+    const z=pts[pts.length-1];return[z[0],z[1],0];};
+  const inside=(x,y)=>x>30&&x<G.w-30&&y>20&&y<G.h-20;
+  LABELS.forEach(([id,txt,f,dy])=>{const p=G.segs[id];if(!p)return;const[x,y,a]=at(p,f);const hw=txt.length*7.5;if(!inside(x-hw,y)||!inside(x+hw,y))return;
+    o+=`<text x="${x}" y="${y}" transform="rotate(${a.toFixed(1)} ${x} ${y})" dy="${dy}" text-anchor="middle" font-size="26" font-weight="700" fill="${css('--ink')}" stroke="${css('--bg')}" stroke-width="7" paint-order="stroke" stroke-linejoin="round">${txt}</text>`;});
+  SHIELDS.forEach(([id,txt,f])=>{const p=G.segs[id];if(!p)return;const[x,y]=at(p,f);if(!inside(x,y))return;const w=txt.length*15+18;
+    o+=`<g><rect x="${x-w/2}" y="${y-17}" width="${w}" height="34" rx="8" fill="#1f4e9c" stroke="#fff" stroke-width="3"/><text x="${x}" y="${y+8}" text-anchor="middle" font-size="22" font-weight="800" fill="#fff">${txt}</text></g>`;});
   const [sx,sy]=G.stadium;
   o+=`<circle cx="${sx}" cy="${sy}" r="11" fill="${css('--garnet')}" stroke="${css('--card')}" stroke-width="4"/>`;
   o+=`<text x="${sx-16}" y="${sy+30}" font-size="24" font-weight="700" fill="${css('--ink')}" text-anchor="end">Williams-Brice</text>`;
