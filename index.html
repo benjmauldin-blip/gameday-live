@@ -255,7 +255,7 @@ function render(d){
 
 let DATA=null, AT=null;
 async function tick(){ DATA=await load(); AT=null;
-  if(CURRENT==='live'&&DATA&&DATA.title){LIVE_TITLE=DATA.title; const o=document.querySelector('#game option[value="live"]'); if(o) o.textContent=LIVE_TITLE+' (live)';}
+  if(CURRENT==='live'&&DATA&&DATA.title){const dd=DATA.date||(DATA.run||'').slice(0,10); LIVE_TITLE=DATA.title+(dd?', '+new Date(dd+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''); const o=document.querySelector('#game option[value="live"]'); if(o) o.textContent=LIVE_TITLE+' (live)';}
   show(); }
 function show(){
   const sl=document.getElementById('slider'), box=document.getElementById('replay');
