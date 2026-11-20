@@ -75,7 +75,7 @@ tr.ex td{color:var(--muted)}
   </div>
   <div class="status">
     <label for="game" class="sub">Game:</label>
-    <select id="game"><option value="live">Tonight (live)</option></select>
+    <select id="game"><option value="live">Live</option></select>
     <a id="report" class="btn" href="#" download hidden>Download After the Whistle report (PDF)</a>
   </div>
 
@@ -138,11 +138,11 @@ function sources(){
   out.push('data/live.json');
   return out;
 }
-let GAMES=[], CURRENT='live';
+let GAMES=[], CURRENT='live', LIVE_TITLE='Tonight';
 async function loadGames(){
   try{const r=await fetch('data/games.json?t='+Date.now(),{cache:'no-store'}); if(r.ok) GAMES=await r.json();}catch(e){}
   const sel=document.getElementById('game');
-  sel.innerHTML='<option value="live">Tonight (live)</option>'+GAMES.map(g=>{
+  sel.innerHTML=`<option value="live">${esc(LIVE_TITLE)} (live)</option>`+GAMES.map(g=>{
     const d=new Date(g.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
     return `<option value="${esc(g.id)}">${esc(g.title)}, ${d}</option>`;}).join('');
   sel.value=CURRENT;
@@ -254,7 +254,9 @@ function render(d){
 }
 
 let DATA=null, AT=null;
-async function tick(){ DATA=await load(); AT=null; show(); }
+async function tick(){ DATA=await load(); AT=null;
+  if(CURRENT==='live'&&DATA&&DATA.title){LIVE_TITLE=DATA.title; const o=document.querySelector('#game option[value="live"]'); if(o) o.textContent=LIVE_TITLE+' (live)';}
+  show(); }
 function show(){
   const sl=document.getElementById('slider'), box=document.getElementById('replay');
   if(!DATA||!DATA.series||!DATA.series.length||CURRENT==='live'){box.hidden=true; render(DATA); return;}
