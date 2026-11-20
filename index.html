@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>After the Whistle Live</title>
+<style>
+:root{
+  --bg:#f7f5f1; --card:#ffffff; --ink:#1f1d1b; --muted:#6f6960; --line:#e3ded6; --garnet:#73000a;
+  --c0:#3fae5a; --c1:#e2b21f; --c2:#ef7b22; --c3:#d9202f; --c4:#7d0a24; --off:#9a948c;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141312; --card:#1e1c1a; --ink:#f1ede7; --muted:#a8a199; --line:#34302c; --garnet:#e0646e;
+    --c0:#4cc46a; --c1:#f0c53a; --c2:#ff8f3a; --c3:#ff4d5a; --c4:#d23a5c; --off:#6f6a63;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141312; --card:#1e1c1a; --ink:#f1ede7; --muted:#a8a199; --line:#34302c; --garnet:#e0646e;
+  --c0:#4cc46a; --c1:#f0c53a; --c2:#ff8f3a; --c3:#ff4d5a; --c4:#d23a5c; --off:#6f6a63;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 Inter,"Segoe UI",system-ui,-apple-system,Arial,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:14px 16px 40px}
+header{display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--garnet);padding-bottom:10px}
+header img{width:54px;height:auto}
+h1{font-size:21px;margin:0;color:var(--garnet);line-height:1.15}
+.sub{color:var(--muted);font-size:13px}
+.status{margin:10px 0 12px;font-size:13.5px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px;font-weight:700;font-size:12.5px;background:var(--card);border:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c0)}
+.pill.live .dot{animation:pulse 1.6s infinite}
+.pill.stale .dot{background:var(--c2)} .pill.wait .dot{background:var(--off)}
+@keyframes pulse{0%{opacity:1}50%{opacity:.25}100%{opacity:1}}
+button{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:4px 10px;cursor:pointer}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.tile b{display:block;font-size:26px;line-height:1.1;color:var(--garnet)}
+.tile span{font-size:12.5px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.card h2{font-size:14.5px;margin:0 0 6px}
+svg{display:block;width:100%;height:auto}
+.key{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--muted);margin-top:6px}
+.key i{display:inline-block;width:18px;height:6px;border-radius:3px;margin-right:5px;vertical-align:middle}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:4px 6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.up{color:var(--c3)} .down{color:var(--c0)} .flat{color:var(--muted)}
+tr.ex td{color:var(--muted)}
+.note{font-size:12px;color:var(--muted);margin-top:14px}
+.tip{position:fixed;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;max-width:240px;z-index:5}
+@media (max-width:760px){th.nm,td.nm{display:none}td,th{padding:5px 4px}.tiles{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.tile b{font-size:22px}h1{font-size:18px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="bird.svg" alt="">
+    <div>
+      <h1 id="title">After the Whistle Live</h1>
+      <div class="sub" id="subtitle">Postgame drive times around Williams-Brice, compared with a normal Saturday</div>
+    </div>
+  </header>
+
+  <div class="status">
+    <span class="pill wait" id="pill"><span class="dot"></span><span id="pilltext">Waiting for first check</span></span>
+    <span id="updated" class="sub"></span>
+    <button id="refresh" type="button">Refresh</button>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><b id="t1">–</b><span>extra minutes now, all roads combined</span></div>
+    <div class="tile"><b id="t2">–</b><span>roads congested now</span></div>
+    <div class="tile"><b id="t3">–</b><span id="t3s">longest delay now</span></div>
+    <div class="tile"><b id="t4">–</b><span id="t4s">peak so far</span></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Roads right now</h2>
+      <svg id="map" role="img" aria-label="Map of measured roads colored by extra drive time"></svg>
+      <div class="key" id="key"></div>
+    </div>
+    <div class="card">
+      <h2>Combined extra drive time</h2>
+      <svg id="chart" viewBox="0 0 520 260" role="img" aria-label="Combined extra minutes over time"></svg>
+      <h2 style="margin-top:10px">Share of roads congested</h2>
+      <svg id="share" viewBox="0 0 520 120" role="img" aria-label="Share of roads congested over time"></svg>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h2>Each road</h2>
+    <table>
+      <thead><tr><th>Road</th><th class="n">Now</th><th class="n nm">Normal</th><th class="n">Extra</th><th class="n">Trend</th><th class="n">Peak so far</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <p class="note" id="foot">Drive times from Google Maps (traffic-aware), checked every 5 minutes from halftime until about 5 hours after the game, compared with a normal Saturday at the same clock time. "Congested" means at least 1.5 times normal and 2 or more minutes slow. Prepared by Blue Finch.</p>
+</div>
+<div class="tip" id="tip"></div>
+
+<script src="geo.js"></script>
+<script>
+const CLASSES=[[1,'--c0','Under 1 min'],[5,'--c1','1 to 5 min'],[15,'--c2','5 to 15 min'],[25,'--c3','15 to 25 min'],[1e9,'--c4','25 min or more']];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const colorFor=m=>m==null?css('--off'):css(CLASSES.find(c=>m<c[0])[1]);
+const fmt=hm=>{if(!hm)return'';let[h,m]=hm.split(':').map(Number);const ap=h>=12&&h<24?'PM':'AM';h=h%12||12;return `${h}:${String(m).padStart(2,'0')} ${ap}`};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Data source: GitHub API for this repo (no CDN delay), falling back to the copy next to the page.
+function sources(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('src')) return [q.get('src')];
+  const host=location.hostname, parts=location.pathname.split('/').filter(Boolean);
+  const out=[];
+  if(host.endsWith('github.io')){
+    const owner=host.split('.')[0], repo=parts[0]||`${owner}.github.io`;
+    out.push(`https://api.github.com/repos/${owner}/${repo}/contents/data/live.json`);
+  }
+  out.push('data/live.json');
+  return out;
+}
+async function load(){
+  for(const url of sources()){
+    try{
+      const api=url.includes('api.github.com');
+      const r=await fetch(url+(api?'':'?t='+Date.now()),{cache:'no-store',headers:api?{'Accept':'application/vnd.github.raw+json'}:{}});
+      if(r.ok) return await r.json();
+    }catch(e){}
+  }
+  return null;
+}
+
+function drawMap(d){
+  const G=window.GEO, svg=document.getElementById('map'), byId={};
+  (d?.roads||[]).forEach(r=>byId[r.id]=r);
+  svg.setAttribute('viewBox',`0 0 ${G.w} ${G.h}`);
+  let o=`<rect width="${G.w}" height="${G.h}" fill="${css('--bg')}" rx="10"/>`;
+  const order=Object.keys(G.segs).sort((a,b)=>((byId[a]?.extra_min)||0)-((byId[b]?.extra_min)||0));
+  for(const id of order){
+    const r=byId[id], pts=G.segs[id].map(p=>p.join(',')).join(' ');
+    const m=r?(r.excluded?null:r.extra_min):null;
+    const w=m==null?6:m<5?8:m<15?11:14;
+    o+=`<polyline points="${pts}" fill="none" stroke="${css('--card')}" stroke-width="${w+6}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    o+=`<polyline class="seg" data-id="${id}" points="${pts}" fill="none" stroke="${colorFor(m)}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${r&&r.excluded?'stroke-dasharray="10 8"':''}/>`;
+  }
+  const [sx,sy]=G.stadium;
+  o+=`<circle cx="${sx}" cy="${sy}" r="11" fill="${css('--garnet')}" stroke="${css('--card')}" stroke-width="4"/>`;
+  o+=`<text x="${sx-16}" y="${sy+30}" font-size="24" font-weight="700" fill="${css('--ink')}" text-anchor="end">Williams-Brice</text>`;
+  svg.innerHTML=o;
+  const tip=document.getElementById('tip');
+  svg.querySelectorAll('.seg').forEach(el=>{
+    const show=e=>{const r=byId[el.dataset.id];const nm=G.names[el.dataset.id]||el.dataset.id;
+      tip.innerHTML=`<b>${esc(nm)}</b><br>`+(r?(r.excluded?'Eastbound closed on game days':`${r.now_min} min now, normally ${r.normal_min}<br>${r.extra_min} min extra`):'No data yet');
+      const t=e.touches?e.touches[0]:e; tip.style.display='block'; tip.style.left=Math.min(t.clientX+12,innerWidth-250)+'px'; tip.style.top=(t.clientY+12)+'px';};
+    el.addEventListener('mousemove',show); el.addEventListener('touchstart',show,{passive:true});
+    el.addEventListener('mouseleave',()=>tip.style.display='none');
+  });
+  document.getElementById('key').innerHTML=CLASSES.map(c=>`<span><i style="background:${css(c[1])}"></i>${c[2]}</span>`).join('')+`<span><i style="background:${css('--off')}"></i>no data / closed</span>`;
+}
+
+function drawLine(id, series, key, maxV, h, label, isPct){
+  const svg=document.getElementById(id), W=520, L=40, R=10, T=12, B=24, H=h;
+  if(!series.length){svg.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="${css('--muted')}" font-size="13">Waiting for the first check</text>`;return;}
+  const n=series.length, X=i=>L+(n<2?0:i/(n-1))*(W-L-R), Y=v=>T+(1-v/maxV)*(H-T-B);
+  let o='';
+  [0,maxV/2,maxV].forEach(v=>{o+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css('--line')}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${isPct?Math.round(v*100)+'%':Math.round(v)}</text>`;});
+  const step=Math.max(1,Math.ceil(n/6));
+  series.forEach((s,i)=>{if(i%step===0)o+=`<text x="${X(i)}" y="${H-6}" text-anchor="middle" font-size="11" fill="${css('--muted')}">${fmt(s.t)}</text>`;});
+  if(isPct){
+    const bw=Math.max(2,(W-L-R)/n*.8);
+    series.forEach((s,i)=>{const v=s.roads?s.congested/s.roads:0;const c=s.congested>=6?'--c3':s.congested>=3?'--c2':s.congested>=1?'--c1':'--c0';
+      o+=`<rect x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${Math.max(1,Y(0)-Y(v))}" fill="${css(c)}"/>`;});
+  }else{
+    const pts=series.map((s,i)=>`${X(i)},${Y(s[key])}`).join(' ');
+    o+=`<polyline points="${L},${Y(0)} ${pts} ${X(n-1)},${Y(0)}" fill="${css('--garnet')}" opacity=".12"/>`;
+    o+=`<polyline points="${pts}" fill="none" stroke="${css('--garnet')}" stroke-width="2.6" stroke-linejoin="round"/>`;
+    const last=series[n-1]; o+=`<circle cx="${X(n-1)}" cy="${Y(last[key])}" r="4.5" fill="${css('--garnet')}"/>`;
+    o+=`<text x="${L}" y="${T-2}" font-size="11" fill="${css('--muted')}">${label}</text>`;
+  }
+  svg.innerHTML=o;
+}
+
+function render(d){
+  const pill=document.getElementById('pill'), pt=document.getElementById('pilltext');
+  if(!d||!d.series||!d.series.length){
+    pill.className='pill wait'; pt.textContent='Waiting for first check';
+    document.getElementById('updated').textContent='Checks start about halftime and run every 5 minutes.';
+    drawMap(null); drawLine('chart',[], 'extra_min',10,260); drawLine('share',[], '',1,120,'',true); return;
+  }
+  document.getElementById('title').textContent=`After the Whistle Live: ${d.title}`;
+  const last=d.series[d.series.length-1];
+  const upd=new Date(d.updated.replace(' ','T')); const age=(Date.now()-upd.getTime())/60000;
+  if(d.status==='final'){pill.className='pill'; pt.textContent='Final';}
+  else if(d.status==='test'){pill.className='pill wait'; pt.textContent='Test data (not tonight)';}
+  else if(age>15){pill.className='pill stale'; pt.textContent='No new data in '+Math.round(age)+' min';}
+  else {pill.className='pill live'; pt.textContent='Live';}
+  document.getElementById('updated').textContent=`Last check ${fmt(d.updated.slice(11,16))}. Page refreshes itself every minute.`;
+  const active=d.roads.filter(r=>!r.excluded&&r.extra_min!=null);
+  const worst=active.slice().sort((a,b)=>b.extra_min-a.extra_min)[0];
+  document.getElementById('t1').textContent=Math.round(last.extra_min);
+  document.getElementById('t2').textContent=`${last.congested} of ${last.roads}`;
+  document.getElementById('t3').textContent=worst&&worst.extra_min>=1?`+${Math.round(worst.extra_min)} min`:'None';
+  document.getElementById('t3s').textContent=worst&&worst.extra_min>=1?`longest delay now: ${worst.name.split(':')[0]}`:'no road more than a minute slow';
+  document.getElementById('t4').textContent=d.peak?Math.round(d.peak.extra_min):'–';
+  document.getElementById('t4s').textContent=d.peak?`peak so far, combined extra minutes at ${fmt(d.peak.t)}`:'peak so far';
+  drawMap(d);
+  const maxV=Math.max(10,Math.ceil(Math.max(...d.series.map(s=>s.extra_min))/25)*25);
+  drawLine('chart',d.series,'extra_min',maxV,260,'extra minutes');
+  drawLine('share',d.series,'',1,120,'',true);
+  const rows=d.roads.slice().sort((a,b)=>(b.excluded?-1:b.extra_min||0)-(a.excluded?-1:a.extra_min||0));
+  document.getElementById('rows').innerHTML=rows.map(r=>{
+    const m=r.excluded?null:r.extra_min, tr=r.trend||0;
+    const arrow=r.excluded?'':tr>0.4?`<span class="up">▲ ${tr.toFixed(1)}</span>`:tr<-0.4?`<span class="down">▼ ${Math.abs(tr).toFixed(1)}</span>`:'<span class="flat">steady</span>';
+    return `<tr class="${r.excluded?'ex':''}"><td><span class="sw" style="background:${colorFor(m)}"></span>${esc(r.name)}${r.excluded?' (eastbound closed on game days)':''}</td>
+      <td class="n">${r.now_min??''}</td><td class="n nm">${r.normal_min??''}</td><td class="n">${r.excluded?'':'+'+(r.extra_min??0)}</td><td class="n">${arrow}</td>
+      <td class="n">${r.excluded?'':`+${r.peak_extra_min??0} at ${fmt(r.peak_at)}`}</td></tr>`;}).join('');
+}
+
+async function tick(){ render(await load()); }
+document.getElementById('refresh').addEventListener('click',tick);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',tick);
+tick(); setInterval(tick,60000);
+</script>
+</body>
+</html>
