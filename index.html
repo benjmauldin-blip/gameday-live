@@ -99,6 +99,8 @@ tr.ex td{color:var(--muted)}
 
   <div class="card vs" id="vs" hidden style="margin-top:12px"><span id="vstext"></span></div>
 
+  <div class="card" id="clr" hidden style="margin-top:12px"><h2 style="margin-bottom:4px">How long it took to clear</h2><div id="clrtext" style="font-size:14.5px"></div></div>
+
   <div class="card" id="replay" hidden style="margin-top:12px">
     <h2>Replay the night: <span id="slidert"></span></h2>
     <input id="slider" type="range" min="0" max="0" value="0" style="width:100%">
@@ -262,6 +264,24 @@ function setInfo(d){
   if(g.weather) parts.push(`Weather: ${esc(g.weather)}`);
   el.hidden=!parts.length; el.innerHTML=parts.join(' &nbsp;·&nbsp; ');
 }
+function setClear(d, REC){
+  const box=document.getElementById('clr'), s=d.series; if(!s||s.length<2){box.hidden=true;return;}
+  let pk=0; s.forEach((x,i)=>{if(x.extra_min>s[pk].extra_min)pk=i;}); const P=s[pk].extra_min;
+  if(P<10){box.hidden=true;return;}
+  const g=d.game||{}, wh=g.whistle;
+  const after=t=>{ if(!wh) return ''; let m=toMin(t)-toMin(wh); if(m<-360)m+=1440; return m>=0?` (${m} min after the whistle)`:''; };
+  const when=f=>{ for(let i=pk;i<s.length;i++) if(s[i].extra_min<=P*(1-f)) return s[i].t; return null; };
+  const h=when(.5), n=when(.9);
+  const recs=Object.values(REC), still=recs.filter(x=>!x.normal).length;
+  let last=null; if(recs.length&&!still){ recs.forEach(x=>{ if(x.back&&(!last||toMin(x.back)+(toMin(x.back)<720?1440:0)>toMin(last)+(toMin(last)<720?1440:0))) last=x.back; }); }
+  const li=[];
+  li.push(`Peak: <b>${Math.round(P)}</b> extra minutes, all roads combined, at <b>${fmt(s[pk].t)}</b>${wh?` (final whistle ${fmt(wh)})`:''}`);
+  li.push(h?`Half of that cleared by <b>${fmt(h)}</b>${after(h)}`:`Half cleared: <b>not yet</b>`);
+  li.push(n?`90% cleared by <b>${fmt(n)}</b>${after(n)}`:`90% cleared: <b>not yet</b>`);
+  li.push(recs.length? (still?`<b>${still}</b> road${still>1?'s':''} still slower than normal`:`Every road back to normal${last?` by <b>${fmt(last)}</b>${after(last)}`:''}`) : '');
+  document.getElementById('clrtext').innerHTML=li.filter(Boolean).map(x=>`<div>${x}</div>`).join('');
+  box.hidden=false;
+}
 function setReport(){
   const a=document.getElementById('report'), g=GAMES.find(x=>x.id===CURRENT);
   if(g&&g.report){a.href=g.report; a.download=g.report_name||''; a.textContent=`Download After the Whistle: ${g.title} (PDF)`; a.hidden=false;} else a.hidden=true;
@@ -272,7 +292,7 @@ function render(d){
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
     document.getElementById('updated').textContent='Checks start about halftime and run every 5 minutes.';
-    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true;
+    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true; document.getElementById('clr').hidden=true;
     document.getElementById('title').textContent='After the Whistle Live'+(d&&d.title?': '+d.title:'');
     ['t1','t2','t3','t4'].forEach(id=>document.getElementById(id).textContent='–');
     document.getElementById('t2s').textContent='roads at normal now'; document.getElementById('t3s').textContent='longest delay now'; document.getElementById('t4s').textContent='peak so far';
@@ -297,6 +317,7 @@ function render(d){
   document.getElementById('t4').textContent=d.peak?Math.round(d.peak.extra_min):'–';
   document.getElementById('t4s').textContent=d.peak?`peak so far, combined extra minutes at ${fmt(d.peak.t)}`:'peak so far';
   drawMap(d);
+  setClear(d, REC);
   drawMain(d);
   drawLine('share',d.series,'',1,120,'',true);
   const rows=d.roads.slice().sort((a,b)=>(b.excluded?-1:b.extra_min||0)-(a.excluded?-1:a.extra_min||0));
