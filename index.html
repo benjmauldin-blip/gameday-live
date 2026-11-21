@@ -54,6 +54,9 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .up{color:var(--c3)} .down{color:var(--c0)} .flat{color:var(--muted)}
 tr.ex td{color:var(--muted)}
+.vs{border-left:5px solid var(--garnet);font-size:15px}
+.vs b{color:var(--garnet)}
+.ok{color:var(--c0);font-weight:600}
 .note{font-size:12px;color:var(--muted);margin-top:14px}
 .tip{position:fixed;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:12.5px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;max-width:240px;z-index:5}
 #cards{display:none}
@@ -87,10 +90,12 @@ tr.ex td{color:var(--muted)}
 
   <div class="tiles">
     <div class="tile"><b id="t1">–</b><span>extra minutes now, all roads combined</span></div>
-    <div class="tile"><b id="t2">–</b><span>roads congested now</span></div>
+    <div class="tile"><b id="t2">–</b><span id="t2s">roads at normal now</span></div>
     <div class="tile"><b id="t3">–</b><span id="t3s">longest delay now</span></div>
     <div class="tile"><b id="t4">–</b><span id="t4s">peak so far</span></div>
   </div>
+
+  <div class="card vs" id="vs" hidden style="margin-top:12px"><span id="vstext"></span></div>
 
   <div class="card" id="replay" hidden style="margin-top:12px">
     <h2>Replay the night: <span id="slidert"></span></h2>
@@ -105,6 +110,7 @@ tr.ex td{color:var(--muted)}
     </div>
     <div class="card">
       <h2>Combined extra drive time</h2>
+      <div class="sub" id="cmpkey" hidden></div>
       <svg id="chart" viewBox="0 0 520 260" role="img" aria-label="Combined extra minutes over time"></svg>
       <h2 style="margin-top:10px">Share of roads congested</h2>
       <svg id="share" viewBox="0 0 520 120" role="img" aria-label="Share of roads congested over time"></svg>
@@ -115,7 +121,7 @@ tr.ex td{color:var(--muted)}
     <h2>Each road</h2>
     <p class="sub" style="margin:0 0 8px">All numbers are <b>minutes to drive</b> that stretch of road, not speeds. "Normal" is the same road at the same time on a Saturday with no game. Worst roads are at the top.</p>
     <table>
-      <thead><tr><th>Road</th><th class="n">Drive time now</th><th class="n nm">Normal drive time</th><th class="n">Delay</th><th class="n">Last 5 min</th><th class="n">Worst delay so far</th></tr></thead>
+      <thead><tr><th>Road</th><th class="n">Drive time now</th><th class="n nm">Normal drive time</th><th class="n">Delay</th><th class="n">Last 5 min</th><th class="n">Worst delay so far / back to normal</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div id="cards"></div>
@@ -254,7 +260,7 @@ function render(d){
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
     document.getElementById('updated').textContent='Checks start about halftime and run every 5 minutes.';
-    drawMap(null); drawLine('chart',[], 'extra_min',10,260); drawLine('share',[], '',1,120,'',true); return;
+    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true; drawLine('share',[], '',1,120,'',true); return;
   }
   document.getElementById('title').textContent=`After the Whistle Live: ${d.title}`;
   const last=d.series[d.series.length-1];
@@ -267,14 +273,15 @@ function render(d){
   const active=d.roads.filter(r=>!r.excluded&&r.extra_min!=null);
   const worst=active.slice().sort((a,b)=>b.extra_min-a.extra_min)[0];
   document.getElementById('t1').textContent=Math.round(last.extra_min);
-  document.getElementById('t2').textContent=`${last.congested} of ${last.roads}`;
+  const REC=recovery(d), recs=Object.values(REC), nNorm=recs.filter(x=>x.normal).length;
+  document.getElementById('t2').textContent=recs.length?`${nNorm} of ${recs.length}`:`${last.congested} of ${last.roads}`;
+  document.getElementById('t2s').textContent=recs.length?`roads at normal now · ${last.congested} congested`:'roads congested now';
   document.getElementById('t3').textContent=worst&&worst.extra_min>=1?`+${Math.round(worst.extra_min)} min`:'None';
   document.getElementById('t3s').textContent=worst&&worst.extra_min>=1?`longest delay now: ${worst.name.split(':')[0]}`:'no road more than a minute slow';
   document.getElementById('t4').textContent=d.peak?Math.round(d.peak.extra_min):'–';
   document.getElementById('t4s').textContent=d.peak?`peak so far, combined extra minutes at ${fmt(d.peak.t)}`:'peak so far';
   drawMap(d);
-  const maxV=Math.max(10,Math.ceil(Math.max(...d.series.map(s=>s.extra_min))/25)*25);
-  drawLine('chart',d.series,'extra_min',maxV,260,'extra minutes');
+  drawMain(d);
   drawLine('share',d.series,'',1,120,'',true);
   const rows=d.roads.slice().sort((a,b)=>(b.excluded?-1:b.extra_min||0)-(a.excluded?-1:a.extra_min||0));
   document.getElementById('rows').innerHTML=rows.map(r=>{
@@ -282,7 +289,7 @@ function render(d){
     const mm=v=>v==null?'':(v>=10?Math.round(v):(+v).toFixed(1))+' min';
     const arrow=r.excluded?'':tr>0.4?`<span class="up">▲ worse by ${mm(tr)}</span>`:tr<-0.4?`<span class="down">▼ better by ${mm(Math.abs(tr))}</span>`:'<span class="flat">no change</span>';
     const delay=r.excluded||m==null?'':(m<0.5?'none':'+'+mm(m));
-    const pk=r.excluded?'':(r.peak_extra_min>=0.5?`+${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'none');
+    const rc=REC[r.id]; const pk=r.excluded?'':(r.peak_extra_min>=0.5?`+${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'none')+(rc&&rc.back?`<br><span class="ok">✓ normal at ${fmt(rc.back)}</span>`:'');
     return `<tr class="${r.excluded?'ex':''}"><td><span class="sw" style="background:${colorFor(m)}"></span>${esc(r.name)}${r.excluded?' (eastbound closed on game days)':''}</td>
       <td class="n">${mm(r.now_min)}</td><td class="n nm">${mm(r.normal_min)}</td><td class="n"><b>${delay}</b></td><td class="n">${arrow}</td>
       <td class="n">${pk}</td></tr>`;}).join('');
@@ -292,15 +299,70 @@ function render(d){
     if(r.excluded) return `<div class="rc"><div class="top"><span><span class="sw" style="background:${colorFor(null)}"></span>${esc(r.name)}</span></div><div class="det">Eastbound closed on game days, left out of totals</div></div>`;
     const delay=m==null?'':(m<0.5?'no delay':'+'+mm(m));
     const arrow=tr>0.4?`<span class="up">▲ worse by ${mm(tr)} in last 5 min</span>`:tr<-0.4?`<span class="down">▼ better by ${mm(Math.abs(tr))} in last 5 min</span>`:'no change in last 5 min';
-    const pk=r.peak_extra_min>=0.5?` · Worst: +${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'';
+    const rc=REC[r.id]; const pk=(r.peak_extra_min>=0.5?` · Worst: +${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'')+(rc&&rc.back?`<br><span class="ok">✓ Back to normal at ${fmt(rc.back)}</span>`:'');
     return `<div class="rc"><div class="top"><span><span class="sw" style="background:${colorFor(m)}"></span>${esc(r.name)}</span><b>${delay}</b></div>
       <div class="det">${mm(r.now_min)} to drive now (normally ${mm(r.normal_min)})<br>${arrow}${pk}</div></div>`;}).join('');
 }
 
-let DATA=null, AT=null;
+let DATA=null, AT=null, CMP=null, CMPID=null;
+const toMin=hm=>{const[h,m]=(hm||'0:0').split(':').map(Number);return h*60+m;};
+const afterKick=(d,t)=>{let m=toMin(t)-toMin(d.kickoff||'00:00'); if(m<-360)m+=1440; return m;};
+const hmm=m=>`${Math.floor(m/60)}:${String(Math.round(m%60)).padStart(2,'0')}`;
+async function loadCmp(){
+  const runId=DATA&&DATA.run?DATA.run.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):'';
+  const g=GAMES.find(x=>x.id!==CURRENT&&x.id!==runId);
+  if(!g){CMP=null;CMPID=null;return;}
+  if(CMPID===g.id&&CMP) return;
+  try{const r=await fetch(`data/games/${encodeURIComponent(g.id)}.json`,{cache:'no-store'}); if(r.ok){CMP=await r.json(); CMP._title=g.title; CMPID=g.id;}}catch(e){CMP=null;}
+}
+// Roads back to normal: under 1 extra minute now; "back at" = when a road that had 3+ min delay dropped under 1 and stayed there.
+function recovery(d){
+  const out={}, i=d.series.length-1; if(!d.road_hist) return out;
+  for(const r of d.roads){ if(r.excluded) continue; const h=d.road_hist[r.id]; if(!h) continue;
+    const e=h.slice(0,i+1).map(x=>x?Math.max(0,x[0]-x[1]):null);
+    let pk=0,pi=-1; e.forEach((v,k)=>{if(v!=null&&v>pk){pk=v;pi=k;}});
+    const now=e[i]; let back=null;
+    if(pk>=3&&now!=null&&now<1){let k=i; while(k>pi&&(e[k]==null||e[k]<1))k--; if(k>=pi&&k<i) back=d.series[k+1].t;}
+    out[r.id]={normal:now!=null&&now<1, back, slowed:pk>=3};
+  }
+  return out;
+}
+function drawMain(d){
+  const svg=document.getElementById('chart'), W=520,H=260,L=40,R=10,T=14,B=24;
+  const cur=d.series.map(s=>[afterKick(d,s.t),s.extra_min]);
+  const cmp=CMP&&CMP.series&&d.kickoff?CMP.series.map(s=>[afterKick(CMP,s.t),s.extra_min]):[];
+  const all=cur.concat(cmp); const x0=Math.min(...all.map(p=>p[0])), x1=Math.max(...all.map(p=>p[0]));
+  const maxV=Math.max(10,Math.ceil(Math.max(...all.map(p=>p[1]))/25)*25);
+  const X=m=>L+(x1>x0?(m-x0)/(x1-x0):0)*(W-L-R), Y=v=>T+(1-v/maxV)*(H-T-B);
+  let o='';
+  [0,maxV/2,maxV].forEach(v=>{o+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css('--line')}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${Math.round(v)}</text>`;});
+  for(let m=Math.ceil(x0/60)*60;m<=x1;m+=60){const t=(toMin(d.kickoff)+m)%1440; o+=`<text x="${X(m)}" y="${H-6}" text-anchor="middle" font-size="11" fill="${css('--muted')}">${fmt(`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`)}</text>`;}
+  if(cmp.length) o+=`<polyline points="${cmp.map(p=>`${X(p[0])},${Y(p[1])}`).join(' ')}" fill="none" stroke="${css('--muted')}" stroke-width="2" stroke-dasharray="6 5" opacity=".8"/>`;
+  const pts=cur.map(p=>`${X(p[0])},${Y(p[1])}`).join(' ');
+  o+=`<polyline points="${X(cur[0][0])},${Y(0)} ${pts} ${X(cur[cur.length-1][0])},${Y(0)}" fill="${css('--garnet')}" opacity=".12"/>`;
+  o+=`<polyline points="${pts}" fill="none" stroke="${css('--garnet')}" stroke-width="2.6" stroke-linejoin="round"/>`;
+  const lp=cur[cur.length-1]; o+=`<circle cx="${X(lp[0])}" cy="${Y(lp[1])}" r="4.5" fill="${css('--garnet')}"/>`;
+  o+=`<text x="${L}" y="${T-3}" font-size="11" fill="${css('--muted')}">extra minutes</text>`;
+  svg.innerHTML=o;
+  const key=document.getElementById('cmpkey');
+  if(cmp.length){key.hidden=false; key.innerHTML=`<span style="color:${css('--garnet')};font-weight:700">━</span> ${esc(d.title)} &nbsp; <span style="color:${css('--muted')}">┅</span> ${esc(CMP._title)}, lined up by time after kickoff`;} else key.hidden=true;
+  // banner
+  const vs=document.getElementById('vs');
+  if(!cmp.length){vs.hidden=true;return;}
+  const m=lp[0], near=cmp.reduce((a,p)=>Math.abs(p[0]-m)<Math.abs(a[0]-m)?p:a,cmp[0]);
+  if(Math.abs(near[0]-m)>10){vs.hidden=true;return;}
+  const c=near[1], v=lp[1]; let txt;
+  if(v<3&&c<3) txt=`Both nights were nearly clear at this point, ${hmm(m)} after kickoff.`;
+  else if(c<3) txt=`<b>${Math.round(v)}</b> extra minutes now. ${esc(CMP._title)} was nearly clear at this point (${hmm(m)} after kickoff).`;
+  else{const pct=Math.round((v-c)/c*100);
+    txt=Math.abs(pct)<10?`<b>About the same</b> as ${esc(CMP._title)} at this point`:`<b>${Math.abs(pct)}% ${pct<0?'lighter':'heavier'}</b> than ${esc(CMP._title)} at this point`;
+    txt+=`: ${Math.round(v)} vs ${Math.round(c)} extra minutes, ${hmm(m)} after kickoff.`;}
+  vs.hidden=false; document.getElementById('vstext').innerHTML=txt;
+}
+
 async function tick(){ DATA=await load(); AT=null;
   if(CURRENT==='live'&&DATA&&DATA.title){const dd=DATA.date||(DATA.run||'').slice(0,10); LIVE_TITLE=DATA.title+(dd?', '+new Date(dd+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):''); const o=document.querySelector('#game option[value="live"]'); if(o) o.textContent=LIVE_TITLE+' (live)';}
-  show(); }
+  await loadCmp(); show(); }
 function show(){
   const sl=document.getElementById('slider'), box=document.getElementById('replay');
   if(!DATA||!DATA.series||!DATA.series.length||CURRENT==='live'){box.hidden=true; render(DATA); return;}
