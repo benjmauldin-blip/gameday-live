@@ -54,6 +54,11 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
 .up{color:var(--c3)} .down{color:var(--c0)} .flat{color:var(--muted)}
 tr.ex td{color:var(--muted)}
+.hot{border-left:5px solid var(--c3);font-size:15px}
+.hot b{color:var(--c3)}
+.warn{color:var(--c3);font-weight:700}
+.evl{font-size:12.5px;margin-top:8px}
+.evl div{padding:2px 0;border-bottom:1px solid var(--line)}
 .vs{border-left:5px solid var(--garnet);font-size:15px}
 .vs b{color:var(--garnet)}
 .ok{color:var(--c0);font-weight:600}
@@ -73,7 +78,7 @@ tr.ex td{color:var(--muted)}
     <img src="bird.svg" alt="">
     <div>
       <h1 id="title">After the Whistle Live</h1>
-      <div class="sub" id="subtitle">Postgame drive times around Williams-Brice, compared with a normal Saturday</div>
+      <div class="sub" id="subtitle">Postgame drive times leaving Williams-Brice (outbound only), compared with a normal Saturday</div>
     </div>
   </header>
 
@@ -97,6 +102,8 @@ tr.ex td{color:var(--muted)}
     <div class="tile"><b id="t4">–</b><span id="t4s">peak so far</span></div>
   </div>
 
+  <div class="card hot" id="hot" hidden style="margin-top:12px"><span id="hottext"></span></div>
+
   <div class="card vs" id="vs" hidden style="margin-top:12px"><span id="vstext"></span></div>
 
   <div class="card" id="clr" hidden style="margin-top:12px"><h2 style="margin-bottom:4px">How long it took to clear</h2><div id="clrtext" style="font-size:14.5px"></div></div>
@@ -111,6 +118,7 @@ tr.ex td{color:var(--muted)}
       <h2>Roads right now</h2>
       <svg id="map" role="img" aria-label="Map of measured roads colored by extra drive time"></svg>
       <div class="key" id="key"></div>
+      <div class="evl" id="evl"></div>
     </div>
     <div class="card">
       <h2>Combined extra drive time</h2>
@@ -123,7 +131,7 @@ tr.ex td{color:var(--muted)}
 
   <div class="card" style="margin-top:12px">
     <h2>Each road</h2>
-    <p class="sub" style="margin:0 0 8px">All numbers are <b>minutes to drive</b> that stretch of road, not speeds. "Normal" is the same road at the same time on a Saturday with no game. Worst roads are at the top.</p>
+    <p class="sub" style="margin:0 0 8px">All numbers are <b>minutes to drive</b> that stretch of road <b>in the direction leaving the stadium</b>, not speeds. "Normal" is the same road at the same time on a Saturday with no game. Worst roads are at the top.</p>
     <table>
       <thead><tr><th>Road</th><th class="n">Drive time now</th><th class="n nm">Normal drive time</th><th class="n">Delay</th><th class="n">Last 5 min</th><th class="n">Worst delay so far / back to normal</th></tr></thead>
       <tbody id="rows"></tbody>
@@ -136,7 +144,7 @@ tr.ex td{color:var(--muted)}
     <div id="replist" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 
-  <p class="note" id="foot">Drive times from Google Maps (traffic-aware), checked every 5 minutes from halftime until about 5 hours after the game, compared with a normal Saturday at the same clock time. "Congested" means at least 1.5 times normal and 2 or more minutes slow. Prepared by Blue Finch.</p>
+  <p class="note" id="foot">Drive times from Google Maps (traffic-aware), checked every 5 minutes from halftime until about 5 hours after the game, compared with a normal Saturday at the same clock time. "Congested" means at least 1.5 times normal and 2 or more minutes slow. Prepared by Blue Finch.<br><b>Unofficial, volunteer-run tool.</b> Not an official product of SCHP, SCDOT, the City of Columbia or USC. Numbers can run several minutes behind what is happening on the road, and crash and hazard markers come from SC 511 and Waze user reports. Always go by what is seen on the ground.</p>
 </div>
 <div class="tip" id="tip"></div>
 
@@ -220,8 +228,21 @@ function drawMap(d){
   const [sx,sy]=G.stadium;
   o+=`<circle cx="${sx}" cy="${sy}" r="11" fill="${css('--garnet')}" stroke="${css('--card')}" stroke-width="4"/>`;
   o+=`<text x="${sx-16}" y="${sy+30}" font-size="24" font-weight="700" fill="${css('--ink')}" text-anchor="end">Williams-Brice</text>`;
-  svg.innerHTML=o;
   const tip=document.getElementById('tip');
+  const EV=recentEvents(d);
+  EV.forEach((e,i)=>{ const x=G.proj[0]*e.lon+G.proj[1], y=G.proj[2]*e.lat+G.proj[3];
+    const k=e.kind.toLowerCase(), col=k.includes('crash')?'#d9202f':k.includes('closed')?'#1f1d1b':'#ef7b22';
+    const shape=k.includes('closed')?`<rect x="${x-13}" y="${y-13}" width="26" height="26" rx="4" fill="${col}" stroke="#fff" stroke-width="3"/><text x="${x}" y="${y+7}" text-anchor="middle" font-size="20" font-weight="800" fill="#fff">✕</text>`
+      : k.includes('crash')?`<circle cx="${x}" cy="${y}" r="14" fill="${col}" stroke="#fff" stroke-width="3"/><text x="${x}" y="${y+7}" text-anchor="middle" font-size="20" font-weight="800" fill="#fff">!</text>`
+      : `<path d="M${x} ${y-16} L${x+15} ${y+12} L${x-15} ${y+12} Z" fill="${col}" stroke="#fff" stroke-width="3" stroke-linejoin="round"/><text x="${x}" y="${y+9}" text-anchor="middle" font-size="17" font-weight="800" fill="#fff">!</text>`;
+    o+=`<g class="ev" data-i="${i}" style="cursor:pointer">${shape}</g>`; });
+  svg.innerHTML=o;
+  svg.querySelectorAll('.ev').forEach(el=>{ const e=EV[+el.dataset.i];
+    const sh=ev=>{ tip.innerHTML=`<b>${esc(e.kind)}</b> · ${esc(e.road)}<br>${esc(e.where||'')}${e.where?'<br>':''}Reported ${fmt(e.t)} (${e.src})`; const t=ev.touches?ev.touches[0]:ev; tip.style.display='block'; tip.style.left=Math.min(t.clientX+12,innerWidth-250)+'px'; tip.style.top=(t.clientY+12)+'px'; };
+    el.addEventListener('mousemove',sh); el.addEventListener('touchstart',sh,{passive:true}); el.addEventListener('mouseleave',()=>tip.style.display='none'); });
+  const evl=document.getElementById('evl');
+  if(!d||!d.series||!d.series.length){evl.innerHTML='';}
+  else evl.innerHTML=`<b>Crashes and hazards on this map in the last hour</b> (SC 511 and Waze reports)`+(EV.length?EV.slice().reverse().slice(0,8).map(e=>`<div>${fmt(e.t)} · <b>${esc(e.kind)}</b> · ${esc(e.road)} <span class="sub">(${e.src})</span></div>`).join(''):'<div class="sub">None reported.</div>');
   svg.querySelectorAll('.seg').forEach(el=>{
     const show=e=>{const r=byId[el.dataset.id];const nm=G.names[el.dataset.id]||el.dataset.id;
       tip.innerHTML=`<b>${esc(nm)}</b><br>`+(r?(r.excluded?'Eastbound closed on game days':`${r.now_min} min now, normally ${r.normal_min}<br>${r.extra_min} min extra`):'No data yet');
@@ -264,6 +285,19 @@ function setInfo(d){
   if(g.weather) parts.push(`Weather: ${esc(g.weather)}`);
   el.hidden=!parts.length; el.innerHTML=parts.join(' &nbsp;·&nbsp; ');
 }
+function recentEvents(d){
+  if(!d||!d.events||!d.updated||!window.GEO.proj) return [];
+  const now=new Date(d.updated.replace(' ','T')).getTime(), G=window.GEO;
+  return d.events.filter(e=>{ const t=new Date(`${e.d}T${e.t}`).getTime(); if(!(t<=now+60000&&t>now-60*60000)) return false;
+    const x=G.proj[0]*e.lon+G.proj[1], y=G.proj[2]*e.lat+G.proj[3]; return x>10&&x<G.w-10&&y>10&&y<G.h-10; });
+}
+// Roads whose delay grew 5+ minutes over the last two checks (about 10 minutes)
+function worseFast(d){
+  const out={}, i=d.series.length-1; if(!d.road_hist||i<2) return out;
+  for(const r of d.roads){ if(r.excluded) continue; const h=d.road_hist[r.id]; if(!h||!h[i]||!h[i-2]) continue;
+    const e=x=>Math.max(0,x[0]-x[1]), jump=e(h[i])-e(h[i-2]); if(jump>=5) out[r.id]=+jump.toFixed(1); }
+  return out;
+}
 function setClear(d, REC){
   const box=document.getElementById('clr'), s=d.series; if(!s||s.length<2){box.hidden=true;return;}
   let pk=0; s.forEach((x,i)=>{if(x.extra_min>s[pk].extra_min)pk=i;}); const P=s[pk].extra_min;
@@ -292,7 +326,7 @@ function render(d){
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
     document.getElementById('updated').textContent='Checks start about halftime and run every 5 minutes.';
-    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true; document.getElementById('clr').hidden=true;
+    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true; document.getElementById('clr').hidden=true; document.getElementById('hot').hidden=true;
     document.getElementById('title').textContent='After the Whistle Live'+(d&&d.title?': '+d.title:'');
     ['t1','t2','t3','t4'].forEach(id=>document.getElementById(id).textContent='–');
     document.getElementById('t2s').textContent='roads at normal now'; document.getElementById('t3s').textContent='longest delay now'; document.getElementById('t4s').textContent='peak so far';
@@ -318,6 +352,9 @@ function render(d){
   document.getElementById('t4s').textContent=d.peak?`peak so far, combined extra minutes at ${fmt(d.peak.t)}`:'peak so far';
   drawMap(d);
   setClear(d, REC);
+  const WF=worseFast(d), hot=document.getElementById('hot'), ids=Object.keys(WF).sort((a,b)=>WF[b]-WF[a]);
+  if(ids.length){ hot.hidden=false; document.getElementById('hottext').innerHTML=`<b>⚠ Getting worse fast:</b> `+ids.map(id=>{const r=d.roads.find(x=>x.id===id); return `${esc(r.name.split(':')[0])} (+${Math.round(WF[id])} min in the last 10 min)`;}).join(', '); }
+  else hot.hidden=true;
   drawMain(d);
   drawLine('share',d.series,'',1,120,'',true);
   const rows=d.roads.slice().sort((a,b)=>(b.excluded?-1:b.extra_min||0)-(a.excluded?-1:a.extra_min||0));
@@ -325,7 +362,7 @@ function render(d){
     const m=r.excluded?null:r.extra_min, tr=r.trend||0;
     const mm=v=>v==null?'':(v>=10?Math.round(v):(+v).toFixed(1))+' min';
     const arrow=r.excluded?'':tr>0.4?`<span class="up">▲ worse by ${mm(tr)}</span>`:tr<-0.4?`<span class="down">▼ better by ${mm(Math.abs(tr))}</span>`:'<span class="flat">no change</span>';
-    const delay=r.excluded||m==null?'':(m<0.5?'none':'+'+mm(m));
+    const delay=(r.excluded||m==null?'':(m<0.5?'none':'+'+mm(m)))+(WF[r.id]?'<br><span class="warn">⚠ worse fast</span>':'');
     const rc=REC[r.id]; const pk=r.excluded?'':(r.peak_extra_min>=0.5?`+${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'none')+(rc&&rc.back?`<br><span class="ok">✓ normal at ${fmt(rc.back)}</span>`:'');
     return `<tr class="${r.excluded?'ex':''}"><td><span class="sw" style="background:${colorFor(m)}"></span>${esc(r.name)}${r.excluded?' (eastbound closed on game days)':''}</td>
       <td class="n">${mm(r.now_min)}</td><td class="n nm">${mm(r.normal_min)}</td><td class="n"><b>${delay}</b></td><td class="n">${arrow}</td>
@@ -334,9 +371,9 @@ function render(d){
     const m=r.excluded?null:r.extra_min, tr=r.trend||0;
     const mm=v=>v==null?'':(v>=10?Math.round(v):(+v).toFixed(1))+' min';
     if(r.excluded) return `<div class="rc"><div class="top"><span><span class="sw" style="background:${colorFor(null)}"></span>${esc(r.name)}</span></div><div class="det">Eastbound closed on game days, left out of totals</div></div>`;
-    const delay=m==null?'':(m<0.5?'no delay':'+'+mm(m));
+    const delay=(m==null?'':(m<0.5?'no delay':'+'+mm(m)))+(WF[r.id]?' <span class="warn">⚠</span>':'');
     const arrow=tr>0.4?`<span class="up">▲ worse by ${mm(tr)} in last 5 min</span>`:tr<-0.4?`<span class="down">▼ better by ${mm(Math.abs(tr))} in last 5 min</span>`:'no change in last 5 min';
-    const rc=REC[r.id]; const pk=(r.peak_extra_min>=0.5?` · Worst: +${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'')+(rc&&rc.back?`<br><span class="ok">✓ Back to normal at ${fmt(rc.back)}</span>`:'');
+    const rc=REC[r.id]; const pk=(WF[r.id]?`<br><span class="warn">⚠ Getting worse fast: +${Math.round(WF[r.id])} min in 10 min</span>`:'')+(r.peak_extra_min>=0.5?` · Worst: +${mm(r.peak_extra_min)} at ${fmt(r.peak_at)}`:'')+(rc&&rc.back?`<br><span class="ok">✓ Back to normal at ${fmt(rc.back)}</span>`:'');
     return `<div class="rc"><div class="top"><span><span class="sw" style="background:${colorFor(m)}"></span>${esc(r.name)}</span><b>${delay}</b></div>
       <div class="det">${mm(r.now_min)} to drive now (normally ${mm(r.normal_min)})<br>${arrow}${pk}</div></div>`;}).join('');
 }
