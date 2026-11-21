@@ -260,7 +260,11 @@ function render(d){
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
     document.getElementById('updated').textContent='Checks start about halftime and run every 5 minutes.';
-    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true; drawLine('share',[], '',1,120,'',true); return;
+    drawMap(null); drawLine('chart',[], 'extra_min',10,260); document.getElementById('vs').hidden=true; document.getElementById('cmpkey').hidden=true;
+    document.getElementById('title').textContent='After the Whistle Live'+(d&&d.title?': '+d.title:'');
+    ['t1','t2','t3','t4'].forEach(id=>document.getElementById(id).textContent='–');
+    document.getElementById('t2s').textContent='roads at normal now'; document.getElementById('t3s').textContent='longest delay now'; document.getElementById('t4s').textContent='peak so far';
+    document.getElementById('rows').innerHTML=''; document.getElementById('cards').innerHTML='<p class="sub">Road details appear after the first check.</p>'; drawLine('share',[], '',1,120,'',true); return;
   }
   document.getElementById('title').textContent=`After the Whistle Live: ${d.title}`;
   const last=d.series[d.series.length-1];
