@@ -88,6 +88,8 @@ tr.ex td{color:var(--muted)}
     <a id="report" class="btn" href="#" download hidden>Download After the Whistle report (PDF)</a>
   </div>
 
+  <div class="sub" id="gameinfo" hidden style="margin:-4px 0 10px;font-size:13.5px"></div>
+
   <div class="tiles">
     <div class="tile"><b id="t1">–</b><span>extra minutes now, all roads combined</span></div>
     <div class="tile"><b id="t2">–</b><span id="t2s">roads at normal now</span></div>
@@ -250,12 +252,22 @@ function drawLine(id, series, key, maxV, h, label, isPct){
   svg.innerHTML=o;
 }
 
+function setInfo(d){
+  const g=(d&&d.game)||{}, el=document.getElementById('gameinfo'), parts=[];
+  if(g.kickoff_actual) parts.push(`Kickoff <b>${fmt(g.kickoff_actual)}</b>`); else if(d&&d.kickoff) parts.push(`Kickoff ${fmt(d.kickoff)} (scheduled)`);
+  if(g.q4) parts.push(`4th quarter <b>${fmt(g.q4)}</b>`);
+  if(g.whistle) parts.push(`Final whistle <b>${fmt(g.whistle)}</b>`);
+  if(g.score) parts.push(esc(g.score));
+  if(g.attendance) parts.push(`Attendance ${esc(g.attendance)}`);
+  if(g.weather) parts.push(`Weather: ${esc(g.weather)}`);
+  el.hidden=!parts.length; el.innerHTML=parts.join(' &nbsp;·&nbsp; ');
+}
 function setReport(){
   const a=document.getElementById('report'), g=GAMES.find(x=>x.id===CURRENT);
   if(g&&g.report){a.href=g.report; a.download=g.report_name||''; a.textContent=`Download After the Whistle: ${g.title} (PDF)`; a.hidden=false;} else a.hidden=true;
 }
 function render(d){
-  setReport();
+  setReport(); setInfo(d);
   const pill=document.getElementById('pill'), pt=document.getElementById('pilltext');
   if(!d||!d.series||!d.series.length){
     pill.className='pill wait'; pt.textContent='Waiting for first check';
@@ -342,6 +354,9 @@ function drawMain(d){
   [0,maxV/2,maxV].forEach(v=>{o+=`<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${css('--line')}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${css('--muted')}">${Math.round(v)}</text>`;});
   for(let m=Math.ceil(x0/60)*60;m<=x1;m+=60){const t=(toMin(d.kickoff)+m)%1440; o+=`<text x="${X(m)}" y="${H-6}" text-anchor="middle" font-size="11" fill="${css('--muted')}">${fmt(`${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`)}</text>`;}
   if(cmp.length) o+=`<polyline points="${cmp.map(p=>`${X(p[0])},${Y(p[1])}`).join(' ')}" fill="none" stroke="${css('--muted')}" stroke-width="2" stroke-dasharray="6 5" opacity=".8"/>`;
+  const g=d.game||{};
+  [['q4','4th Q',10],['whistle','Final',24]].forEach(([k,lab,dy])=>{ if(!g[k]) return; const m=afterKick(d,g[k]); if(m<x0||m>x1) return;
+    o+=`<line x1="${X(m)}" x2="${X(m)}" y1="${T}" y2="${H-B}" stroke="${css('--ink')}" stroke-width="1.2" stroke-dasharray="3 4" opacity=".55"/><text x="${X(m)+4}" y="${T+dy}" font-size="11" font-weight="700" stroke="${css('--card')}" stroke-width="3" paint-order="stroke" fill="${css('--ink')}">${lab} ${fmt(g[k])}</text>`;});
   const pts=cur.map(p=>`${X(p[0])},${Y(p[1])}`).join(' ');
   o+=`<polyline points="${X(cur[0][0])},${Y(0)} ${pts} ${X(cur[cur.length-1][0])},${Y(0)}" fill="${css('--garnet')}" opacity=".12"/>`;
   o+=`<polyline points="${pts}" fill="none" stroke="${css('--garnet')}" stroke-width="2.6" stroke-linejoin="round"/>`;
