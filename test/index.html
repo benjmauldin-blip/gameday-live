@@ -26,6 +26,7 @@
   .legend i{display:inline-block;width:22px;height:5px;border-radius:3px;margin-right:6px;vertical-align:middle}
   .legend .sec{background:repeating-linear-gradient(90deg,#111 0 5px,transparent 5px 8px);height:4px}
   .leaflet-popup-content{font-size:13px;line-height:1.45;margin:10px 12px}
+  .base{filter:grayscale(1) brightness(1.06) contrast(.9)}
   .note{font-size:11px;color:var(--muted);padding:5px 12px;background:var(--card);border-top:1px solid #e4e2dc}
   @media (max-width:600px){header h1{font-size:15px}.stats{gap:10px;font-size:12px}}
 </style>
@@ -47,8 +48,14 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const fmt=t=>{if(!t)return'';const[h,m]=t.split(':').map(Number);return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`};
 
 const map=L.map('map').setView([33.972,-81.015],13);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',
-  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+// Base map in gray so our colors stand out: TomTom's street map once the map key is in, OpenStreetMap until then.
+if(window.TT_MAP_KEY){
+  L.tileLayer(`https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?key=${encodeURIComponent(window.TT_MAP_KEY)}&tileSize=256`,
+    {maxZoom:19,className:'base',attribution:'Map &copy; TomTom'}).addTo(map);
+}else{
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,className:'base',
+    attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+}
 
 let traffic=null;
 if(window.TT_MAP_KEY){
