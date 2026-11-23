@@ -125,7 +125,7 @@ async function draw(){
     // Lock the map to the area our roads cover: no panning away, no zooming out past all 33 roads.
     const all=L.latLngBounds(ROADS.flatMap(r=>r.pts)).pad(0.08);
     map.setMaxBounds(all); map.options.maxBoundsViscosity=1.0;
-    map.setMinZoom(map.getBoundsZoom(all,true)); map.setMaxZoom(18);
+    map.setMinZoom(map.getBoundsZoom(all,false)); map.setMaxZoom(18);
     map.fitBounds(L.latLngBounds(ROADS.filter(r=>!/^S(0[789]|1[0-3]|19|20|21)$/.test(r.id)).flatMap(r=>r.pts)).pad(0.03));
     fitted=true;}
 }
