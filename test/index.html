@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Game Day Traffic Map (TEST)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="map_key.js"></script>
+<style>
+  :root{--garnet:#73000a;--ink:#1d1d1b;--muted:#5f5f5a;--bg:#f6f5f1;--card:#fff;
+        --c0:#2e9a4f;--c1:#e8b923;--c2:#ef7d22;--c3:#d62a2a;--c4:#6b0f1a;--off:#9a9a94}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+  body{display:flex;flex-direction:column}
+  .test{background:var(--garnet);color:#fff;font-size:13px;font-weight:600;text-align:center;padding:6px 10px}
+  header{background:var(--card);border-bottom:1px solid #e4e2dc;padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+  header h1{font-size:16px;margin:0;font-weight:700}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--off)}
+  .dot.live{background:var(--c0)} .dot.stale{background:var(--c2)}
+  .stats{display:flex;gap:14px;font-size:13px;color:var(--muted)} .stats b{color:var(--ink);font-size:15px}
+  #map{flex:1;min-height:300px}
+  .legend{background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.25);font-size:12px;line-height:1.6}
+  .legend i{display:inline-block;width:22px;height:5px;border-radius:3px;margin-right:6px;vertical-align:middle}
+  .legend .sec{background:repeating-linear-gradient(90deg,#111 0 5px,transparent 5px 8px);height:4px}
+  .leaflet-popup-content{font-size:13px;line-height:1.45;margin:10px 12px}
+  .note{font-size:11px;color:var(--muted);padding:5px 12px;background:var(--card);border-top:1px solid #e4e2dc}
+  @media (max-width:600px){header h1{font-size:15px}.stats{gap:10px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="test">TEST MAP, not the official page. TomTom data. Unlisted, please do not share.</div>
+<header>
+  <h1 id="title">Game Day Traffic Map</h1>
+  <span class="pill"><span class="dot" id="dot"></span><span id="status">Loading…</span></span>
+  <span class="stats"><span><b id="s1">–</b> roads at normal</span><span><b id="s2">–</b> extra min, all roads</span><span><b id="s3">–</b> slow stretches</span></span>
+</header>
+<div id="map"></div>
+<div class="note">Colored lines = our measured roads (minutes extra vs. TomTom's typical time). Thin background colors = TomTom's live traffic on every street (refreshes every 5 min). Dashed black = the exact slow stretch on a measured road. Unofficial, volunteer-run tool. Always go by what is seen on the ground.</div>
+<script>
+const CLASSES=[[1,'--c0','Under 1 min extra'],[5,'--c1','1 to 5 min'],[15,'--c2','5 to 15 min'],[25,'--c3','15 to 25 min'],[1e9,'--c4','25 min or more']];
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const colorFor=m=>m==null?css('--off'):css(CLASSES.find(c=>m<c[0])[1]);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=t=>{if(!t)return'';const[h,m]=t.split(':').map(Number);return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`};
+
+const map=L.map('map').setView([33.972,-81.015],13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd',
+  attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
+
+let traffic=null;
+if(window.TT_MAP_KEY){
+  const url=()=>`https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${encodeURIComponent(window.TT_MAP_KEY)}&tileSize=256&t=${Math.floor(Date.now()/300000)}`;
+  traffic=L.tileLayer(url(),{maxZoom:19,opacity:.7,attribution:'Traffic &copy; TomTom'}).addTo(map);
+  setInterval(()=>{if(!document.hidden) traffic.setUrl(url());},300000);   // every 5 min, only while the page is open
+}
+const roadsLayer=L.layerGroup().addTo(map), secLayer=L.layerGroup().addTo(map);
+const overlays={'Measured roads':roadsLayer,'Exact slow stretches':secLayer};
+if(traffic) overlays['TomTom live traffic, all streets']=traffic;
+L.control.layers(null,overlays,{collapsed:true}).addTo(map);
+const lg=L.control({position:'bottomright'});
+lg.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML=CLASSES.map(c=>`<div><i style="background:${css(c[1])}"></i>${c[2]}</div>`).join('')+
+  `<div><i style="background:${css('--off')}"></i>No data yet</div><div><i class="sec"></i>Exact slow stretch</div>`+(traffic?'':'<div style="color:#a00;margin-top:4px">Live traffic layer off (no map key yet)</div>');return d};
+lg.addTo(map);
+
+let ROADS=null, STADIUM=null, fitted=false;
+function src(name){
+  const host=location.hostname, parts=location.pathname.split('/').filter(Boolean), out=[];
+  if(host.endsWith('github.io')){const owner=host.split('.')[0], repo=parts[0]; out.push(`https://api.github.com/repos/${owner}/${repo}/contents/test/${name}`);}
+  out.push(name); return out;
+}
+async function getJSON(name){
+  for(const u of src(name)){
+    try{const api=u.includes('api.github.com');const r=await fetch(u+(api?'':'?t='+Date.now()),{cache:'no-store',headers:api?{'Accept':'application/vnd.github.raw+json'}:{}});if(r.ok) return await r.json();}catch(e){}
+  }
+  return null;
+}
+async function draw(){
+  if(!ROADS){const g=await getJSON('roads.json'); if(!g) return; ROADS=g.roads; STADIUM=g.stadium;
+    L.circleMarker(STADIUM,{radius:8,color:'#fff',weight:3,fillColor:css('--garnet'),fillOpacity:1}).addTo(map).bindTooltip('Williams-Brice');}
+  const d=await getJSON('live.json'), s=await getJSON('sections.json');
+  const byId={}; (d&&d.roads||[]).forEach(r=>byId[r.id]=r);
+  roadsLayer.clearLayers(); secLayer.clearLayers();
+  let nNorm=0,nTot=0,extra=0;
+  for(const rd of ROADS){
+    const r=byId[rd.id], m=r?(r.excluded?null:r.extra_min):null;
+    if(r&&!r.excluded){nTot++; if(m!=null&&m<1) nNorm++; extra+=m||0;} else if(!r&&rd.id!=='S02'){nTot++;}
+    L.polyline(rd.pts,{color:'#fff',weight:10,opacity:.9}).addTo(roadsLayer);
+    const line=L.polyline(rd.pts,{color:colorFor(m),weight:6,opacity:.95,dashArray:r&&r.excluded?'8 8':null}).addTo(roadsLayer);
+    const body=!r?'No data yet':r.excluded?'Eastbound closed on game days, left out of totals':
+      `${r.now_min} min to drive now (typical ${r.normal_min})<br><b>${m<0.5?'No delay':'+'+m+' min'}</b>`+(r.peak_extra_min>=0.5?`<br>Worst: +${r.peak_extra_min} min at ${fmt(r.peak_at)}`:'');
+    line.bindPopup(`<b>${esc(rd.name)}</b><br>${body}`);
+  }
+  let nSec=0;
+  for(const [id,list] of Object.entries((s&&s.sections)||{})){
+    for(const sec of list||[]){
+      if(!sec.pts||sec.pts.length<2) continue; nSec++;
+      const rd=ROADS.find(x=>x.id===id);
+      L.polyline(sec.pts,{color:'#111',weight:4,dashArray:'6 5',opacity:.95}).addTo(secLayer)
+        .bindPopup(`<b>Slow stretch</b><br>${esc(rd?rd.name:id)}<br>${sec.mph!=null?sec.mph+' mph':''}${sec.delay_sec?` · +${Math.round(sec.delay_sec/6)/10} min here`:''}${sec.cat?`<br>${esc(sec.cat.toLowerCase())}`:''}`);
+    }
+  }
+  document.getElementById('s1').textContent=d?`${nNorm} of ${nTot}`:'–';
+  document.getElementById('s2').textContent=d?Math.round(extra):'–';
+  document.getElementById('s3').textContent=nSec;
+  const dot=document.getElementById('dot'), st=document.getElementById('status');
+  if(!d||!d.updated){dot.className='dot';st.textContent='Waiting for data';}
+  else{
+    document.getElementById('title').textContent=d.title||'Game Day Traffic Map';
+    const age=(Date.now()-new Date(d.updated.replace(' ','T')).getTime())/60000;
+    if(d.status==='final'){dot.className='dot';st.textContent=`Final. Last check ${fmt(d.updated.slice(11,16))}`;}
+    else if(age>15){dot.className='dot stale';st.textContent=`No new data in ${Math.round(age)} min`;}
+    else{dot.className='dot live';st.textContent=`Live. Last check ${fmt(d.updated.slice(11,16))}`;}
+  }
+  if(!fitted&&ROADS){map.fitBounds(L.latLngBounds(ROADS.filter(r=>!/^S(0[789]|1[0-3]|19|20|21)$/.test(r.id)).flatMap(r=>r.pts)).pad(0.03));fitted=true;}
+}
+draw(); setInterval(()=>{if(!document.hidden) draw();},90000);
+</script>
+</body>
+</html>
