@@ -121,7 +121,13 @@ async function draw(){
     else if(age>15){dot.className='dot stale';st.textContent=`No new data in ${Math.round(age)} min`;}
     else{dot.className='dot live';st.textContent=`Live. Last check ${fmt(d.updated.slice(11,16))}`;}
   }
-  if(!fitted&&ROADS){map.fitBounds(L.latLngBounds(ROADS.filter(r=>!/^S(0[789]|1[0-3]|19|20|21)$/.test(r.id)).flatMap(r=>r.pts)).pad(0.03));fitted=true;}
+  if(!fitted&&ROADS){
+    // Lock the map to the area our roads cover: no panning away, no zooming out past all 33 roads.
+    const all=L.latLngBounds(ROADS.flatMap(r=>r.pts)).pad(0.08);
+    map.setMaxBounds(all); map.options.maxBoundsViscosity=1.0;
+    map.setMinZoom(map.getBoundsZoom(all,true)); map.setMaxZoom(18);
+    map.fitBounds(L.latLngBounds(ROADS.filter(r=>!/^S(0[789]|1[0-3]|19|20|21)$/.test(r.id)).flatMap(r=>r.pts)).pad(0.03));
+    fitted=true;}
 }
 draw(); setInterval(()=>{if(!document.hidden) draw();},90000);
 </script>
